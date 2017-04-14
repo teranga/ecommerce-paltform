@@ -11,6 +11,15 @@
     <packaging>jar</packaging>
 
     <dependencies>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jdk8</artifactId>
+        </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>account-api</artifactId>
@@ -22,7 +31,12 @@
         </dependency>
         <dependency>
             <groupId>com.lightbend.lagom</groupId>
-            <artifactId>lagom-javadsl-persistence_2.11</artifactId>
+            <artifactId>lagom-javadsl-persistence-cassandra_2.11</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.lightbend.lagom</groupId>
+            <artifactId>lagom-javadsl-kafka-broker_2.11</artifactId>
         </dependency>
         <dependency>
             <groupId>com.lightbend.lagom</groupId>

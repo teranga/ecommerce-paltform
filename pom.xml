@@ -7,25 +7,17 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>hello-api</module>
-        <module>hello-impl</module>
-        <module>amicard-api</module>
-        <module>amicard-impl</module>
+        <!--<module>amicard-api</module>-->
+        <!--<module>amicard-impl</module>-->
         <module>account-api</module>
         <module>account-impl</module>
-        <module>product-api</module>
-        <module>product-impl</module>
-        <module>order-api</module>
-        <module>order-impl</module>
-        <module>stream-api</module>
-        <module>stream-impl</module>
-        <module>integration-tests</module>
+        <!--<module>product-api</module>-->
+        <!--<module>product-impl</module>-->
+        <!--<module>order-api</module>-->
+        <!--<module>order-impl</module>-->
+        <!--<module>integration-tests</module>-->
         <module>cassandra-config</module>
     </modules>
-
-    <!--<properties>-->
-    <!--<jackson.version value="2.7.2"></jackson.version>-->
-    <!--</properties>-->
 
     <build>
         <plugins>
@@ -45,8 +37,11 @@
                 <configuration>
                     <source>1.8</source>
                     <target>1.8</target>
+                    <encoding>utf-8</encoding>
                     <compilerArgs>
                         <arg>-parameters</arg>
+                        <arg>-Xlint:deprecation</arg>
+                        <arg>-Xlint:unchecked</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>
@@ -55,6 +50,46 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jdk8</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-pcollections</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-guava</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.lightbend.lagom</groupId>
                 <artifactId>lagom-javadsl-server_2.11</artifactId>
@@ -77,6 +112,16 @@
             </dependency>
             <dependency>
                 <groupId>com.lightbend.lagom</groupId>
+                <artifactId>lagom-javadsl-persistence-cassandra_2.11</artifactId>
+                <version>${lagom.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.lightbend.lagom</groupId>
+                <artifactId>lagom-javadsl-kafka-broker_2.11</artifactId>
+                <version>${lagom.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.lightbend.lagom</groupId>
                 <artifactId>lagom-logback_2.11</artifactId>
                 <version>${lagom.version}</version>
             </dependency>
@@ -89,11 +134,6 @@
                 <groupId>com.lightbend.lagom</groupId>
                 <artifactId>lagom-javadsl-pubsub_2.11</artifactId>
                 <version>${lagom.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <version>2.7.2</version>
             </dependency>
             <dependency>
                 <groupId>com.datastax.cassandra</groupId>
@@ -126,9 +166,10 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
-        <lagom.version>1.1.0-RC1</lagom.version>
+        <lagom.version>1.2.1</lagom.version>
         <play.version>2.5.4</play.version>
+        <jackson.version>2.7.8</jackson.version>
+        <lombok.version>1.16.10</lombok.version>
         <conductr.lib.name>lagom10-conductr-bundle-lib_2.11</conductr.lib.name>
     </properties>
 </project>

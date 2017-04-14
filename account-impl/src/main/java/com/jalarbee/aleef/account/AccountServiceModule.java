@@ -1,6 +1,7 @@
 package com.jalarbee.aleef.account;
 
 import com.google.inject.AbstractModule;
+import com.jalarbee.aleef.account.api.AccountService;
 import com.lightbend.lagom.javadsl.server.ServiceGuiceSupport;
 
 /**

@@ -2,70 +2,103 @@ package com.jalarbee.aleef.account;
 
 import akka.Done;
 import akka.NotUsed;
-import akka.stream.javadsl.Source;
+import akka.japi.Pair;
 import com.google.inject.Inject;
-import com.jalarbee.aleef.account.model.Account;
-import com.jalarbee.aleef.account.model.Person;
-import com.jalarbee.aleef.account.model.Registration;
+import com.jalarbee.aleef.account.api.AccountEvent;
+import com.jalarbee.aleef.account.api.AccountService;
+import com.jalarbee.aleef.account.api.model.Account;
+import com.jalarbee.aleef.account.model.PAccount;
+import com.jalarbee.aleef.account.model.PAccountStatus;
 import com.lightbend.lagom.javadsl.api.ServiceCall;
+import com.lightbend.lagom.javadsl.api.broker.Topic;
+import com.lightbend.lagom.javadsl.api.transport.NotFound;
+import com.lightbend.lagom.javadsl.broker.TopicProducer;
+import com.lightbend.lagom.javadsl.persistence.Offset;
 import com.lightbend.lagom.javadsl.persistence.PersistentEntityRef;
 import com.lightbend.lagom.javadsl.persistence.PersistentEntityRegistry;
-import com.lightbend.lagom.javadsl.persistence.cassandra.CassandraReadSide;
-import com.lightbend.lagom.javadsl.persistence.cassandra.CassandraSession;
-import com.lightbend.lagom.javadsl.pubsub.PubSubRef;
-import com.lightbend.lagom.javadsl.pubsub.PubSubRegistry;
-import com.lightbend.lagom.javadsl.pubsub.TopicId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Optional;
+import javax.inject.Singleton;
+import javax.validation.constraints.NotNull;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 /**
  * @author Abdoulaye Diallo
  */
-public class AccountServiceImpl implements AccountService {
+@Singleton
+class AccountServiceImpl implements AccountService {
 
 
-    private final PersistentEntityRegistry persistentEntityRegistry;
-    private final PubSubRegistry topics;
-    private final CassandraSession db;
+    private final PersistentEntityRegistry registry;
     private final Logger log = LoggerFactory.getLogger(AccountServiceImpl.class);
 
     @Inject
-    public AccountServiceImpl(PersistentEntityRegistry persistentEntityRegistry, CassandraReadSide readSide, PubSubRegistry topics, CassandraSession db) {
-        this.persistentEntityRegistry = persistentEntityRegistry;
-        this.topics = topics;
-        this.db = db;
-        persistentEntityRegistry.register(AccountEntity.class);
-        readSide.register(AccountEventProcessor.class);
+    public AccountServiceImpl(PersistentEntityRegistry registry) {
+        this.registry = registry;
+        registry.register(AccountEntity.class);
     }
 
     @Override
-    public ServiceCall<Registration, Done> register() {
+    public ServiceCall<Account, Account> register() {
 
         return request -> {
-            PubSubRef<Registration> topic = topics.refFor(TopicId.of(Registration.class, "topic"));
-            topic.publish(request);
-            log.info("account created - id = : {}", request.login().id());
-            PersistentEntityRef<AccountCommand> ref = persistentEntityRegistry.refFor(AccountEntity.class, request.login().id());
-            return ref.ask(CreateAccount.of(request));
+            PAccount pAccount = PAccount.fromAccount(request, PAccountStatus.NOT_CREATED); //TODO: perform validation
+            PersistentEntityRef<PAccountCommand> ref = registry.refFor(AccountEntity.class, request.getId());
+            return ref.ask(new PAccountCommand.CreateAccount(pAccount)).thenApply(done -> pAccount.toAccount());
         };
     }
 
     @Override
-    public ServiceCall<NotUsed, Source<Account, ?>> streamRegistrations() {
-        return req -> {
-            PubSubRef<Account> topic = topics.refFor(TopicId.of(Account.class, "topic"));
-            return CompletableFuture.completedFuture(topic.subscriber());
-        };
+    public Topic<AccountEvent> accountEvents() {
+        //@formatter:off
+        return TopicProducer.taggedStreamWithOffset(PAccountEvent.TAG.allTags(),
+                (tag, offset) -> registry.eventStream(tag, offset)
+                        .filter(this::filterEvent)
+                        .mapAsync(1, eventAndOffset -> convertEvent(eventAndOffset.first()).thenApply(event -> Pair.create(event, eventAndOffset.second()))));
+        //@formatter:on
+    }
+
+
+    @Override
+    public ServiceCall<Long, Done> suspend(String accountId) {
+        return request -> entityRef(accountId).ask(new PAccountCommand.SuspendAccount(accountId, Duration.ofMinutes(request)));
     }
 
     @Override
-    public ServiceCall<NotUsed, Optional<Account>> getAccount(String id) {
-        return request -> db.selectOne("select id, owner from account where id=?", id)
-                .thenApply(
-                        row -> row.map(r -> Optional.of(Account.of(r.getString("id"), r.get("owner", Person.class)))).orElse(Optional.empty())
-                );
+    public ServiceCall<NotUsed, Done> liftSuspension(String accountId) {
+        return request -> entityRef(accountId).ask(new PAccountCommand.LiftSuspension(accountId));
+    }
+
+    @Override
+    public ServiceCall<NotUsed, Done> delete(String accountId) {
+        return request -> entityRef(accountId).ask(new PAccountCommand.DeleteAccount(accountId));
+    }
+
+    @NotNull
+    private CompletionStage<AccountEvent> convertEvent(PAccountEvent pEvent) {
+        if (pEvent instanceof PAccountEvent.AccountCreated) {
+            PAccountEvent.AccountCreated event = (PAccountEvent.AccountCreated) pEvent;
+            return CompletableFuture.completedFuture(new AccountEvent.AccountCreated(event.getAccount().toAccount().getId(), event.getCreatedOn()));
+        } else {
+            throw new IllegalStateException("trying to publish a non public event");
+        }
+    }
+
+    private boolean filterEvent(Pair<PAccountEvent, Offset> pAccountEventOffsetPair) {
+        return pAccountEventOffsetPair.first() instanceof PAccountEvent.AccountCreated;
+    }
+
+    @Override
+    public ServiceCall<NotUsed, Account> getAccount(String id) {
+        return request -> entityRef(id).ask(PAccountCommand.GetAccount.INSTANCE).thenApply(x -> x.orElseGet(() -> {
+            throw new NotFound("Account " + id + " not found");
+        }));
+    }
+
+    private PersistentEntityRef<PAccountCommand> entityRef(String id) {
+        return registry.refFor(AccountEntity.class, id);
     }
 }
